@@ -17,6 +17,7 @@
  *
  * Created on February 12, 2010, 3:53 PM
  */
+#pragma GCC diagnostic ignored "-Wshadow"
 
 #include <iostream>
 #include <vector>
@@ -55,6 +56,7 @@ static void printUsage() {
     cerr << " -nv\tDon't generate constructors taking required elements and vectors" << endl;
     cerr << " -a\tGenerate constructors taking all elements" << endl;
     cerr << " -cmake\tGenerate CMakeLists.txt with all generated .cpp files as part of a library with the specified target name" << endl;
+    cerr << " --namespace\tGenerate C++ classes with specified namespace" << endl;
     cerr << " --dry-run\tPerform generation but don't write anything to disk - instead does exit(1) if any file changes" << endl;
     cerr << endl;
     cerr << " Generates C++ classes for marshalling and unmarshalling XML to C++ objects according to the given schemas." << endl;
@@ -76,6 +78,7 @@ bool generateRequiredCtor = true;
 bool generateRequiredAndVectorsCtor = true;
 bool generateAllCtor = false;
 static std::string cmakeTargetName;
+std::string namespacePrefix, np;
 
 static Class* addClass(Class *cl, map<FullName, Class*>& to = classes) {
     if(to.find(cl->name) != to.end()) {
@@ -533,7 +536,7 @@ static void resolveMemberRefs(map<FullName, Class*>& classMap) {
     }
 }
 
-static void work(string outputDir, const vector<string>& schemaNames) {
+static void work(string /*outputDir*/, const vector<string>& schemaNames) {
     XercesDOMParser parser;
     parser.setDoNamespaces(true);
 
@@ -708,6 +711,15 @@ int main_wrapper(int argc, char** argv) {
             } else if(!strcmp(argv[1], "-a")) {
                 generateAllCtor = true;
                 if(verbose) cerr << "Generating constructors that take all elements" << endl;
+
+                continue;
+            } else if(!strcmp(argv[1], "--namespace")) {
+                namespacePrefix = argv[2];
+                np = namespacePrefix + "::";
+                if(verbose) cerr << "C++ namespace: " << namespacePrefix << endl;
+
+                argv++;
+                argc--;
 
                 continue;
             } else if(!strcmp(argv[1], "-cmake")) {

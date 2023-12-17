@@ -17,6 +17,7 @@
  * 
  * Created on February 14, 2010, 4:20 PM
  */
+#pragma GCC diagnostic ignored "-Wshadow"
 
 #include "Class.h"
 #include <sstream>
@@ -30,6 +31,7 @@ extern bool generateDefaultCtor;
 extern bool generateRequiredCtor;
 extern bool generateRequiredAndVectorsCtor;
 extern bool generateAllCtor;
+extern string namespacePrefix;
 
 const string variablePostfix = "_james";
 
@@ -336,6 +338,11 @@ void Class::writeImplementation(ostream& os) const {
     os << "using namespace james;" << endl;
     os << endl;
 
+    os << "#pragma GCC diagnostic ignored \"-Wunused-parameter\"" << endl;
+    os << "#pragma GCC diagnostic ignored \"-Wshadow\"" << endl;
+
+    if (namespacePrefix != "") { os << "namespace " << namespacePrefix << "{" << endl; }
+
     if (needsProtectedDefaultConstructor()) {
         if(base && !base->isSimple())
             os << className << "::" << className << "() : " << base->getClassname() << "() {}" << endl;
@@ -371,7 +378,7 @@ void Class::writeImplementation(ostream& os) const {
     //string cast operator
     os << className << "::operator std::string () const {" << endl;
     os << "\tostringstream oss;" << endl;
-    os << "\toss << *this;" << endl;
+    os << "\t::operator <<(oss, *this);" << endl;
     os << "\treturn oss.str();" << endl;
     os << "}" << endl;
     os << endl;
@@ -396,12 +403,14 @@ void Class::writeImplementation(ostream& os) const {
     os << generateParser() << endl;
     os << "}" << endl << endl;
 
-    os << "std::ostream& operator<< (std::ostream& os, const " << className << "& obj) {" << endl;
-    os << "\treturn james::marshal(os, obj, static_cast<void (james::XMLObject::*)(xercesc::DOMElement*) const>(&" << className << "::appendChildren), obj.getName(), obj.getNamespace());" << endl;
+    if (namespacePrefix != "") { os << "}" << endl; }
+    string np = (namespacePrefix != "" ? namespacePrefix + "::" : "");
+    os << "std::ostream& operator<< (std::ostream& os, const " << np << className << "& obj) {" << endl;
+    os << "\treturn james::marshal(os, obj, static_cast<void (james::XMLObject::*)(xercesc::DOMElement*) const>(&" << np << className << "::appendChildren), obj.getName(), obj.getNamespace());" << endl;
     os << "}" << endl << endl;
 
-    os << "std::istream& operator>> (std::istream& is, " << className << "& obj) {" << endl;
-    os << "\treturn james::unmarshal(is, obj, static_cast<void (james::XMLObject::*)(xercesc::DOMElement*)>(&" << className << "::parseNode), obj.getName());" << endl;
+    os << "std::istream& operator>> (std::istream& is, " << np << className << "& obj) {" << endl;
+    os << "\treturn james::unmarshal(is, obj, static_cast<void (james::XMLObject::*)(xercesc::DOMElement*)>(&" << np << className << "::parseNode), obj.getName());" << endl;
     os << "}" << endl << endl;
 }
 
@@ -431,8 +440,8 @@ set<string> Class::getPrototypeClasses() const {
 void Class::writeHeader(ostream& os) const {
     ClassName className = name.second;
 
-    os << "#ifndef _" << className << "_H" << endl;
-    os << "#define _" << className << "_H" << endl;
+    os << "#ifndef _" << namespacePrefix << "_" << className << "_H" << endl;
+    os << "#define _" << namespacePrefix << "_" << className << "_H" << endl;
 
     os << "#include <vector>" << endl;
 
@@ -450,7 +459,9 @@ void Class::writeHeader(ostream& os) const {
     
     //simple types only need a typedef
     if(isSimple()) {
+        if (namespacePrefix != "") { os << "namespace " << namespacePrefix << "{" << endl; }
         os << "typedef " << base->getClassname() << " " << name.second << ";" << endl;
+        if (namespacePrefix != "") { os << "}" << endl; }
     } else {
         if(base && base->hasHeader())
             os << "#include " << getBaseHeader() << endl;
@@ -471,6 +482,7 @@ void Class::writeHeader(ostream& os) const {
 
         set<string> classesToPrototype = getPrototypeClasses();
 
+        if (namespacePrefix != "") { os << "namespace " << namespacePrefix << "{" << endl; }
         //member class prototypes, but only for classes that we haven't already included
         for(set<string>::const_iterator it = classesToPrototype.begin(); it != classesToPrototype.end(); it++)
             os << "class " << *it << ";" << endl;
@@ -569,8 +581,9 @@ void Class::writeHeader(ostream& os) const {
 
         os << "};" << endl;
         os << endl;
-        os << "std::ostream& operator<< (std::ostream& os, const " << className << "& obj);" << endl;
-        os << "std::istream& operator>> (std::istream& is, " << className << "& obj);" << endl;
+        if (namespacePrefix != "") { os << "}" << endl; }
+        os << "std::ostream& operator<< (std::ostream& os, const " << (namespacePrefix == "" ? "" : namespacePrefix + "::") + className << "& obj);" << endl;
+        os << "std::istream& operator>> (std::istream& is, " << (namespacePrefix == "" ? "" : namespacePrefix + "::") + className << "& obj);" << endl;
         os << endl;
 
         //include classes that we prototyped earlier

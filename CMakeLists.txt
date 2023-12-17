@@ -15,6 +15,8 @@
 cmake_minimum_required(VERSION 2.6)
 project(james)
 
+find_package(XercesC)
+
 add_subdirectory(libjames)
 
 add_executable(james
